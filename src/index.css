@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-ink-950: #070b12;
+  --color-ink-900: #0d1420;
+  --color-ink-850: #121b2a;
+  --color-ink-800: #182334;
+  --color-ink-700: #24334a;
+  --color-ink-600: #35486a;
+  --color-leaf-500: #22c55e;
+  --color-leaf-400: #4ade80;
+  --color-leaf-300: #86efac;
+  --font-sans: 'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink-950);
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numeric readouts should not jitter as values change. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-ink-700);
+  border-radius: 999px;
+  border: 3px solid var(--color-ink-950);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-600);
+}
