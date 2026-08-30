@@ -21,6 +21,21 @@ pnpm test       # kit geometry/KPIs, the boundary guard, and the demo generator
 pnpm build      # typecheck + production build
 ```
 
+## Deploying
+
+Pushing to `main` publishes to GitHub Pages via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
+`pnpm test` runs first, so a change that breaks the kit's portability guard
+stops the deploy instead of shipping. Live at
+<https://gerardbaholli.github.io/leafio/>.
+
+`base: './'` in [vite.config.ts](vite.config.ts) is what makes the same build
+work at the domain root and under `/leafio/`. Safe here because the demo is a
+single page with no client-side routing — with a router it would need the
+explicit `/leafio/` path instead.
+
+Enabling it once, on GitHub: **Settings → Pages → Source: GitHub Actions**.
+
 ## What the first demo does
 
 - **2D planogram editor** (`react-konva`) — drag facings between and along
