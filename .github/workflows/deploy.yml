@@ -47,6 +47,8 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
-          commit_message: "Deploy ${{ github.sha }}"
+          # The action appends the source SHA, so this is a prefix, not the
+          # whole message — repeating the SHA here would print it twice.
+          commit_message: Deploy
           user_name: github-actions[bot]
           user_email: 41898282+github-actions[bot]@users.noreply.github.com
