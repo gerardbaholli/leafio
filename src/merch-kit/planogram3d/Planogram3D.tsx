@@ -1,49 +1,60 @@
-import { memo, useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
+import { memo, useMemo, useRef, useState, type ComponentRef } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Grid, Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
+import { useEffect } from 'react'
 
-import { colorFor } from '@/core/colors'
-import { facingFootprint, type Facing, type Fixture, type Shelf, type Sku } from '@/core/model'
-import type { FacingStats } from '@/core/metrics'
-import type { MetricScale } from '@/core/colors'
-import { useMetricScale, usePlanogramStats, usePlanogramStore, useSkuIndex } from '@/state/planogramStore'
-import { Segmented } from '@/ui/primitives'
+import { ControlButton, ControlGroup, Hint, overlayBase } from '../chrome'
+import { buildScale, colorFor } from '../colors'
+import { planogramStats, type FacingStats } from '../metrics'
+import { byId, facingFootprint, type Facing, type Fixture, type Shelf, type Sku } from '../model'
+import { resolveTheme, type PlanogramTheme } from '../theme'
+import type { PlanogramViewProps } from '../types'
 
 /** Domain millimetres to three.js metres. */
 const MM = 0.001
-
-type CameraPreset = 'front' | 'angle' | 'top'
-
-const SHELF_MATERIAL = { color: '#5b6b85', roughness: 0.75, metalness: 0.15 }
 const FOV = 38
 
-function FixtureMesh({ fixture }: { fixture: Fixture }) {
+export type CameraPreset = 'front' | 'angle' | 'top'
+
+export const CAMERA_PRESETS: { value: CameraPreset; label: string }[] = [
+  { value: 'front', label: 'Front' },
+  { value: 'angle', label: '3/4' },
+  { value: 'top', label: 'Top' },
+]
+
+export type Planogram3DProps = PlanogramViewProps & {
+  /** Controlled camera preset. Leave unset to let the view manage its own. */
+  cameraPreset?: CameraPreset
+  onCameraPresetChange?: (preset: CameraPreset) => void
+  /** Rendered over the canvas, top left — for host badges and notices. */
+  overlay?: React.ReactNode
+}
+
+function FixtureMesh({ fixture, theme }: { fixture: Fixture; theme: PlanogramTheme }) {
   const w = fixture.w * MM
   const h = fixture.h * MM
   const d = fixture.d * MM
   const upright = 0.055
+  const plinth = (fixture.shelves[0]?.y ?? 120) * MM
 
   return (
     <group>
-      {/* Back panel */}
       <mesh position={[0, h / 2, -d / 2]} receiveShadow>
         <boxGeometry args={[w + upright * 2, h, 0.02]} />
-        <meshStandardMaterial color="#1b2637" roughness={0.9} />
+        <meshStandardMaterial color={theme.fixture.back} roughness={0.9} />
       </mesh>
 
-      {/* Uprights */}
       {[-(w / 2) - upright / 2, w / 2 + upright / 2].map((x) => (
         <mesh key={x} position={[x, h / 2, 0]} castShadow receiveShadow>
           <boxGeometry args={[upright, h, d]} />
-          <meshStandardMaterial {...SHELF_MATERIAL} color="#33425c" />
+          <meshStandardMaterial color={theme.fixture.upright} roughness={0.75} metalness={0.15} />
         </mesh>
       ))}
 
-      {/* Base plinth */}
-      <mesh position={[0, (fixture.shelves[0]?.y ?? 120) * MM * 0.5, 0]} receiveShadow>
-        <boxGeometry args={[w, (fixture.shelves[0]?.y ?? 120) * MM, d * 0.92]} />
-        <meshStandardMaterial color="#24324a" roughness={0.85} />
+      <mesh position={[0, plinth / 2, 0]} receiveShadow>
+        <boxGeometry args={[w, plinth, d * 0.92]} />
+        <meshStandardMaterial color={theme.fixture.plinth} roughness={0.85} />
       </mesh>
 
       {fixture.shelves.map((shelf) => (
@@ -54,7 +65,11 @@ function FixtureMesh({ fixture }: { fixture: Fixture }) {
           receiveShadow
         >
           <boxGeometry args={[w, shelf.thickness * MM, shelf.depth * MM]} />
-          <meshStandardMaterial {...SHELF_MATERIAL} />
+          <meshStandardMaterial
+            color={theme.fixture.shelfBoard}
+            roughness={0.75}
+            metalness={0.15}
+          />
         </mesh>
       ))}
     </group>
@@ -67,6 +82,7 @@ type FacingMeshProps = {
   shelf: Shelf
   fixture: Fixture
   color: string
+  theme: PlanogramTheme
   selected: boolean
   dimmed: boolean
   stats?: FacingStats
@@ -80,6 +96,7 @@ function FacingMeshImpl({
   shelf,
   fixture,
   color,
+  theme,
   selected,
   dimmed,
   stats,
@@ -127,7 +144,7 @@ function FacingMeshImpl({
           metalness={0.05}
           transparent={dimmed}
           opacity={dimmed ? 0.28 : 1}
-          emissive={selected ? '#4ade80' : hovered ? '#ffffff' : '#000000'}
+          emissive={selected ? theme.accent : hovered ? '#ffffff' : '#000000'}
           emissiveIntensity={selected ? 0.35 : hovered ? 0.12 : 0}
         />
       </mesh>
@@ -145,15 +162,28 @@ function FacingMeshImpl({
           distanceFactor={3}
           style={{ pointerEvents: 'none' }}
         >
-          <div className="tabular whitespace-nowrap rounded border border-ink-700 bg-ink-950/95 px-2 py-1 text-[10px] text-slate-200 shadow-lg">
-            <div className="font-semibold">{sku.name}</div>
-            <div className="text-slate-400">
+          <div
+            style={{
+              whiteSpace: 'nowrap',
+              borderRadius: 4,
+              border: `1px solid ${theme.surfaceBorder}`,
+              background: theme.surface,
+              padding: '4px 7px',
+              fontSize: 10,
+              fontFamily:
+                'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+              color: theme.text,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            <div style={{ fontWeight: 600 }}>{sku.name}</div>
+            <div style={{ color: theme.textMuted }}>
               {facing.wide}×{facing.high} facings · {stats ? stats.capacity : 0} u ·{' '}
               {stats && Number.isFinite(stats.dos) ? `${stats.dos.toFixed(1)} d` : '—'}
             </div>
             {previewDelta !== 0 && (
-              <div className={previewDelta > 0 ? 'text-leaf-400' : 'text-orange-400'}>
-                autofacing: {facing.wide} → {facing.wide + previewDelta} facings
+              <div style={{ color: previewDelta > 0 ? theme.increase : theme.decrease }}>
+                target: {facing.wide} → {facing.wide + previewDelta} facings
               </div>
             )}
           </div>
@@ -174,19 +204,16 @@ function CameraRig({
   width: number
   height: number
 }) {
-  const { camera } = useThree()
+  const { camera, size } = useThree()
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null)
-
-  const { size } = useThree()
   const lookAt = useMemo(() => new THREE.Vector3(0, height * 0.48, 0), [height])
 
   const target = useMemo(() => {
     // Pull back far enough that the whole bay fits the actual canvas aspect,
-    // not a guessed one — a 3.75 m run in a tall panel needs a lot more room.
+    // not a guessed one — a wide run in a tall panel needs a lot more room.
     const vHalf = Math.tan((FOV * Math.PI) / 360)
     const hHalf = vHalf * (size.width / Math.max(size.height, 1))
-    const distance =
-      Math.max((width / 2 + 0.25) / hHalf, (height / 2 + 0.25) / vHalf) * 1.08
+    const distance = Math.max((width / 2 + 0.25) / hHalf, (height / 2 + 0.25) / vHalf) * 1.08
 
     const direction = {
       front: new THREE.Vector3(0, 0.1, 1),
@@ -196,6 +223,7 @@ function CameraRig({
 
     return lookAt.clone().add(direction.normalize().multiplyScalar(distance))
   }, [preset, width, height, size.width, size.height, lookAt])
+
   const animating = useRef(true)
 
   useEffect(() => {
@@ -225,32 +253,66 @@ function CameraRig({
   )
 }
 
-export default function Planogram3D() {
-  const fixture = usePlanogramStore((s) => s.fixture)
-  const facings = usePlanogramStore((s) => s.facings)
-  const selectedFacingId = usePlanogramStore((s) => s.selectedFacingId)
-  const preview = usePlanogramStore((s) => s.preview)
-  const select = usePlanogramStore((s) => s.select)
+/**
+ * The same planogram as a lit 3D bay. Shares every input with `Planogram2D`,
+ * so a host can toggle between them without converting anything.
+ */
+export function Planogram3D({
+  fixture,
+  facings,
+  skus,
+  metric = 'none',
+  selectedFacingId = null,
+  preview = null,
+  theme: themeOverride,
+  getFacingColor,
+  onSelect,
+  cameraPreset,
+  onCameraPresetChange,
+  controls = true,
+  hints = true,
+  overlay,
+  className,
+  style,
+}: Planogram3DProps) {
+  const theme = useMemo(() => resolveTheme(themeOverride), [themeOverride])
+  const skuIndex = useMemo(() => (skus instanceof Map ? skus : byId(skus as Sku[])), [skus])
+  const stats = useMemo(
+    () => planogramStats(fixture, facings, skuIndex),
+    [fixture, facings, skuIndex],
+  )
+  const scaleInfo = useMemo(() => buildScale(metric, stats.perFacing.values()), [metric, stats])
 
-  const skuIndex = useSkuIndex()
-  const stats = usePlanogramStats()
-  const scale = useMetricScale()
+  const [internalPreset, setInternalPreset] = useState<CameraPreset>('angle')
+  const preset = cameraPreset ?? internalPreset
+  const setPreset = (next: CameraPreset) => {
+    setInternalPreset(next)
+    onCameraPresetChange?.(next)
+  }
 
-  const [preset, setPreset] = useState<CameraPreset>('angle')
   const width = fixture.w * MM
   const height = fixture.h * MM
   const span = Math.max(width, height)
 
   return (
-    <div className="relative h-full w-full bg-ink-950">
+    <div
+      className={className}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        background: theme.background,
+        ...style,
+      }}
+    >
       <Canvas
         shadows
         dpr={[1, 2]}
         camera={{ fov: FOV, near: 0.05, far: span * 40, position: [span, height, span * 1.6] }}
-        onPointerMissed={() => select(null)}
+        onPointerMissed={() => onSelect?.(null)}
       >
-        <color attach="background" args={['#070b12']} />
-        <fog attach="fog" args={['#070b12', span * 4, span * 12]} />
+        <color attach="background" args={[theme.background]} />
+        <fog attach="fog" args={[theme.background, span * theme.scene.fogNear, span * theme.scene.fogFar]} />
 
         <ambientLight intensity={0.85} />
         <directionalLight
@@ -265,27 +327,28 @@ export default function Planogram3D() {
         />
         <directionalLight position={[-span, span, -span]} intensity={0.35} />
 
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[span * 24, span * 24]} />
-          <meshStandardMaterial color="#0b1119" roughness={1} />
+          <meshStandardMaterial color={theme.scene.floor} roughness={1} />
         </mesh>
         <Grid
           args={[span * 24, span * 24]}
           cellSize={0.25}
-          cellColor="#16202f"
+          cellColor={theme.scene.grid}
           sectionSize={1}
-          sectionColor="#1f2d42"
+          sectionColor={theme.scene.gridSection}
           fadeDistance={span * 10}
           infiniteGrid
           position={[0, 0.001, 0]}
         />
 
-        <FixtureMesh fixture={fixture} />
+        <FixtureMesh fixture={fixture} theme={theme} />
 
         {facings.map((facing) => {
           const sku = skuIndex.get(facing.skuId)
           const shelf = fixture.shelves.find((s) => s.id === facing.shelfId)
           if (!sku || !shelf) return null
+          const facingStats = stats.perFacing.get(facing.id)
           return (
             <FacingMesh
               key={facing.id}
@@ -293,12 +356,16 @@ export default function Planogram3D() {
               sku={sku}
               shelf={shelf}
               fixture={fixture}
-              color={colorFor(sku, facing, stats.perFacing.get(facing.id), scale as MetricScale)}
+              theme={theme}
+              color={
+                getFacingColor?.(sku, facing, facingStats) ??
+                colorFor(sku, facing, facingStats, scaleInfo)
+              }
               selected={selectedFacingId === facing.id}
               dimmed={Boolean(selectedFacingId) && selectedFacingId !== facing.id}
-              stats={stats.perFacing.get(facing.id)}
-              previewWide={preview?.targets.get(facing.id)}
-              onSelect={select}
+              stats={facingStats}
+              previewWide={preview?.get(facing.id)}
+              onSelect={(id) => onSelect?.(id)}
             />
           )
         })}
@@ -306,28 +373,29 @@ export default function Planogram3D() {
         <CameraRig preset={preset} width={width} height={height} />
       </Canvas>
 
-      <div className="absolute bottom-3 left-3">
-        <Segmented
-          size="sm"
-          value={preset}
-          onChange={setPreset}
-          options={[
-            { value: 'front', label: 'Front' },
-            { value: 'angle', label: '3/4' },
-            { value: 'top', label: 'Top' },
-          ]}
-        />
-      </div>
+      {overlay && <div style={{ ...overlayBase(theme), left: 12, top: 12 }}>{overlay}</div>}
 
-      {preview && preview.changes.length > 0 && (
-        <div className="pointer-events-none absolute left-3 top-3 rounded border border-leaf-500/40 bg-leaf-500/10 px-2 py-1 text-[10px] text-leaf-300">
-          Autofacing preview · {preview.changes.length} changes — switch to 2D to review the diff
+      {controls && (
+        <div style={{ ...overlayBase(theme), left: 12, bottom: 12 }}>
+          <ControlGroup theme={theme}>
+            {CAMERA_PRESETS.map((option) => (
+              <ControlButton
+                key={option.value}
+                theme={theme}
+                title={`${option.label} view`}
+                active={preset === option.value}
+                onClick={() => setPreset(option.value)}
+              >
+                {option.label}
+              </ControlButton>
+            ))}
+          </ControlGroup>
         </div>
       )}
 
-      <div className="pointer-events-none absolute bottom-3 right-3 text-[10px] text-slate-600">
-        drag to orbit · wheel to zoom · click a pack to select
-      </div>
+      {hints && <Hint theme={theme}>drag to orbit · wheel to zoom · click a pack to select</Hint>}
     </div>
   )
 }
+
+export default Planogram3D

@@ -2,8 +2,9 @@ import { memo, useRef } from 'react'
 import { Group, Line, Rect, Text } from 'react-konva'
 import type Konva from 'konva'
 
-import { readableText } from '@/core/colors'
-import { facingFootprint, type Facing, type Shelf, type Sku } from '@/core/model'
+import { readableText } from '../colors'
+import { facingFootprint, type Facing, type Shelf, type Sku } from '../model'
+import type { PlanogramTheme } from '../theme'
 
 export type FacingBlockProps = {
   facing: Facing
@@ -12,6 +13,7 @@ export type FacingBlockProps = {
   fixtureHeight: number
   color: string
   scale: number
+  theme: PlanogramTheme
   selected: boolean
   hasFitIssue: boolean
   dimmed: boolean
@@ -29,6 +31,7 @@ function FacingBlockImpl({
   fixtureHeight,
   color,
   scale,
+  theme,
   selected,
   hasFitIssue,
   dimmed,
@@ -81,7 +84,7 @@ function FacingBlockImpl({
         cornerRadius={2 / scale}
         perfectDrawEnabled={false}
         shadowForStrokeEnabled={false}
-        stroke={hasFitIssue ? '#f43f5e' : 'rgba(0,0,0,0.35)'}
+        stroke={hasFitIssue ? theme.danger : theme.facing.stroke}
         strokeWidth={(hasFitIssue ? 2.5 : 1) / scale}
       />
 
@@ -91,7 +94,7 @@ function FacingBlockImpl({
           <Line
             key={`v${i}`}
             points={[box.unitW * (i + 1), 0, box.unitW * (i + 1), box.height]}
-            stroke="rgba(0,0,0,0.28)"
+            stroke={theme.facing.divider}
             strokeWidth={0.8 / scale}
             listening={false}
             perfectDrawEnabled={false}
@@ -102,7 +105,7 @@ function FacingBlockImpl({
           <Line
             key={`h${i}`}
             points={[0, sku.dims.h * (i + 1), box.width, sku.dims.h * (i + 1)]}
-            stroke="rgba(0,0,0,0.28)"
+            stroke={theme.facing.divider}
             strokeWidth={0.8 / scale}
             listening={false}
             perfectDrawEnabled={false}
@@ -117,7 +120,7 @@ function FacingBlockImpl({
             y={box.height * 0.34}
             width={box.width * 0.84}
             height={Math.min(box.height * 0.34, 26 / scale)}
-            fill="rgba(255,255,255,0.14)"
+            fill={theme.facing.labelBand}
             cornerRadius={1 / scale}
             listening={false}
             perfectDrawEnabled={false}
@@ -159,7 +162,7 @@ function FacingBlockImpl({
           y={4 / scale}
           width={8 / scale}
           height={8 / scale}
-          fill="#fbbf24"
+          fill={theme.pin}
           cornerRadius={4 / scale}
           listening={false}
           perfectDrawEnabled={false}
@@ -171,7 +174,7 @@ function FacingBlockImpl({
         <Rect
           width={previewWidth}
           height={box.height}
-          stroke={previewWidth > box.width ? '#4ade80' : '#f97316'}
+          stroke={previewWidth > box.width ? theme.increase : theme.decrease}
           strokeWidth={2 / scale}
           dash={[6 / scale, 4 / scale]}
           listening={false}
@@ -185,7 +188,7 @@ function FacingBlockImpl({
           y={-2 / scale}
           width={box.width + 4 / scale}
           height={box.height + 4 / scale}
-          stroke="#4ade80"
+          stroke={theme.accent}
           strokeWidth={2.5 / scale}
           cornerRadius={3 / scale}
           listening={false}

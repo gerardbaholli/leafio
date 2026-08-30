@@ -7,7 +7,7 @@
  * shows recognisable brand blocks.
  */
 
-import type { CategoryKey } from './model'
+import type { CategoryKey } from '@/merch-kit'
 
 export type PackFormat = {
   label: string

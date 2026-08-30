@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Boxes, LayoutGrid, Camera, Sparkles } from 'lucide-react'
 
-import ShelfSpaceDemo from '@/modules/shelf-space/ShelfSpaceDemo'
-import { cx } from '@/ui/primitives'
+import ShelfSpaceDemo from '@/demo/shelf-space/ShelfSpaceDemo'
+import { cx } from '@/demo/ui/primitives'
 
 type DemoKey = 'shelf-space' | 'store-layout' | 'compliance' | 'auto-planogram'
 

@@ -7,9 +7,15 @@
  * deterministic and easy to explain on screen.
  */
 
-import { layoutShelf } from './packing'
-import { facingFootprint, type Facing, type Fixture, type Sku } from './model'
-import { facingStats, TARGET_DOS } from './metrics'
+import {
+  type Facing,
+  facingFootprint,
+  facingStats,
+  type Fixture,
+  layoutShelf,
+  type Sku,
+  TARGET_DOS,
+} from '@/merch-kit'
 
 export type Objective = 'sales' | 'margin' | 'units' | 'dos'
 

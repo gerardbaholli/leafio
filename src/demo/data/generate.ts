@@ -3,19 +3,19 @@
  */
 
 import { CATEGORIES, type CategoryDef, type PackFormat } from './catalog'
-import { layoutShelf } from './packing'
 import {
-  byId,
   type AbcClass,
+  byId,
   type CategoryKey,
   type Facing,
   type Fixture,
   type FixtureType,
+  layoutShelf,
   type Planogram,
   type Scenario,
   type Shelf,
   type Sku,
-} from './model'
+} from '@/merch-kit'
 import { gauss, mulberry32, paretoWeight, range, rangeInt, shuffle, type Rng } from './rng'
 
 export type FixturePreset = {

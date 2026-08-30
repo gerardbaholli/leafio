@@ -1,11 +1,8 @@
-import { Suspense, lazy, useEffect } from 'react'
+import { useEffect } from 'react'
 
-import { usePlanogramStore, useTimeTravel } from '@/state/planogramStore'
+import { usePlanogramStore, useTimeTravel } from '@/demo/state/planogramStore'
 
-import Planogram2D from './canvas2d/Planogram2D'
-
-// three.js is a third of the bundle; only pay for it when the 3D tab is opened.
-const Planogram3D = lazy(() => import('./canvas3d/Planogram3D'))
+import PlanogramCanvas from './PlanogramCanvas'
 import AnalyticsPanel from './panels/AnalyticsPanel'
 import Inspector from './panels/Inspector'
 import OptimizePanel from './panels/OptimizePanel'
@@ -14,7 +11,6 @@ import Toolbar from './Toolbar'
 
 export default function ShelfSpaceDemo() {
   useKeyboardShortcuts()
-  const view = usePlanogramStore((s) => s.view)
 
   return (
     <div className="flex h-full flex-col">
@@ -24,19 +20,7 @@ export default function ShelfSpaceDemo() {
         <SkuLibrary />
 
         <div className="min-h-0 overflow-hidden rounded-lg border border-ink-800">
-          {view === '2d' ? (
-            <Planogram2D />
-          ) : (
-            <Suspense
-              fallback={
-                <div className="flex h-full items-center justify-center text-xs text-slate-600">
-                  Loading 3D scene…
-                </div>
-              }
-            >
-              <Planogram3D />
-            </Suspense>
-          )}
+          <PlanogramCanvas />
         </div>
 
         <div className="flex min-h-0 flex-col gap-2">

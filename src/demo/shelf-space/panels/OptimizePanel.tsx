@@ -1,8 +1,8 @@
 import { Check, Sparkles, X } from 'lucide-react'
 
-import type { Objective } from '@/core/autofacing'
-import { usePlanogramStore, usePreviewStats, usePlanogramStats } from '@/state/planogramStore'
-import { Field, Panel, Segmented, Slider, cx, fmt } from '@/ui/primitives'
+import type { Objective } from '@/demo/autofacing'
+import { usePlanogramStore, usePreviewStats, usePlanogramStats } from '@/demo/state/planogramStore'
+import { Field, Panel, Segmented, Slider, cx, fmt } from '@/demo/ui/primitives'
 
 const OBJECTIVES: { value: Objective; label: string; title: string }[] = [
   { value: 'margin', label: 'Margin', title: 'Give space to the most profitable demand' },

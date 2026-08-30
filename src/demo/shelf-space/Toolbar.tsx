@@ -1,11 +1,15 @@
 import { Box, Dices, Redo2, Square, Undo2 } from 'lucide-react'
 
-import { CATEGORIES, CATEGORY_KEYS } from '@/core/catalog'
-import { METRICS, type MetricKey } from '@/core/colors'
-import { FIXTURE_PRESETS } from '@/core/generate'
-import type { CategoryKey, FixtureType } from '@/core/model'
-import { usePlanogramStore, useTimeTravel } from '@/state/planogramStore'
-import { IconButton, Segmented } from '@/ui/primitives'
+import { CATEGORIES, CATEGORY_KEYS } from '@/demo/data/catalog'
+import {
+  type CategoryKey,
+  type FixtureType,
+  type MetricKey,
+  METRICS,
+} from '@/merch-kit'
+import { FIXTURE_PRESETS } from '@/demo/data/generate'
+import { usePlanogramStore, useTimeTravel } from '@/demo/state/planogramStore'
+import { IconButton, Segmented } from '@/demo/ui/primitives'
 
 const selectClass =
   'rounded border border-ink-800 bg-ink-950 px-1.5 py-1 text-xs text-slate-200 outline-none focus:border-ink-600'

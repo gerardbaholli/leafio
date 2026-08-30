@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 
-import { packagingColor } from '@/core/colors'
-import type { Sku } from '@/core/model'
-import { usePlanogramStore } from '@/state/planogramStore'
-import { Badge, Panel, cx, fmt } from '@/ui/primitives'
+import {
+  packagingColor,
+  type Sku,
+} from '@/merch-kit'
+import { usePlanogramStore } from '@/demo/state/planogramStore'
+import { Badge, Panel, cx, fmt } from '@/demo/ui/primitives'
 
 /**
  * Catalogue side panel. Rows are HTML5 drag sources; the canvas reads the SKU

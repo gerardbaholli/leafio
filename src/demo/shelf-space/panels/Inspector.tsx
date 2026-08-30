@@ -1,10 +1,13 @@
 import { Minus, Pin, Plus, Trash2 } from 'lucide-react'
 
-import { packagingColor } from '@/core/colors'
-import { facingFootprint } from '@/core/model'
-import { OVERSTOCK_DOS, STOCKOUT_DOS } from '@/core/metrics'
-import { usePlanogramStats, usePlanogramStore, useSkuIndex } from '@/state/planogramStore'
-import { Badge, IconButton, Panel, fmt } from '@/ui/primitives'
+import {
+  facingFootprint,
+  OVERSTOCK_DOS,
+  packagingColor,
+  STOCKOUT_DOS,
+} from '@/merch-kit'
+import { usePlanogramStats, usePlanogramStore, useSkuIndex } from '@/demo/state/planogramStore'
+import { Badge, IconButton, Panel, fmt } from '@/demo/ui/primitives'
 
 export default function Inspector() {
   const selectedFacingId = usePlanogramStore((s) => s.selectedFacingId)

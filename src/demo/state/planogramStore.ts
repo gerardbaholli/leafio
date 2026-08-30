@@ -9,12 +9,22 @@ import {
   computeAutofacing,
   type AutofacingOptions,
   type FacingChange,
-} from '@/core/autofacing'
-import { DEFAULT_OPTIONS, generateScenario, type GenerateOptions } from '@/core/generate'
-import { byId, type Facing, type Fixture, type Sku } from '@/core/model'
-import { buildScale, type MetricKey } from '@/core/colors'
-import { planogramStats } from '@/core/metrics'
-import { insertIndexAt, layoutShelf, maxDeep, maxHigh, placeFacing } from '@/core/packing'
+} from '@/demo/autofacing'
+import { DEFAULT_OPTIONS, generateScenario, type GenerateOptions } from '@/demo/data/generate'
+import {
+  buildScale,
+  byId,
+  type Facing,
+  type Fixture,
+  insertIndexAt,
+  layoutShelf,
+  maxDeep,
+  maxHigh,
+  type MetricKey,
+  placeFacing,
+  planogramStats,
+  type Sku,
+} from '@/merch-kit'
 
 export type ViewMode = '2d' | '3d'
 

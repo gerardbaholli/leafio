@@ -1,18 +1,14 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Group, Layer, Line, Rect, Stage } from 'react-konva'
 import type Konva from 'konva'
-import { Crosshair, Maximize2, ZoomIn, ZoomOut } from 'lucide-react'
 
-import { colorFor } from '@/core/colors'
-import { facingFootprint, type Facing } from '@/core/model'
-import { insertIndexAt, shelfAtHeight } from '@/core/packing'
-import {
-  useMetricScale,
-  usePlanogramStats,
-  usePlanogramStore,
-  useSkuIndex,
-} from '@/state/planogramStore'
-import { IconButton } from '@/ui/primitives'
+import { ControlButton, ControlGroup, Hint, Readout, icons, overlayBase } from '../chrome'
+import { buildScale, colorFor } from '../colors'
+import { planogramStats } from '../metrics'
+import { byId, facingFootprint, type Facing, type Sku } from '../model'
+import { insertIndexAt, shelfAtHeight } from '../packing'
+import { resolveTheme } from '../theme'
+import type { FacingMove, PlanogramViewProps, SkuDrop } from '../types'
 
 import { FacingBlock } from './FacingBlock'
 import { FixtureLayer, LABEL_GUTTER, UPRIGHT } from './FixtureLayer'
@@ -22,20 +18,59 @@ const MARGIN_TOP = 70
 const MARGIN_RIGHT = 240
 const MARGIN_BOTTOM = 120
 
+export const SKU_DROP_MIME = 'application/x-sku'
+
+export type Planogram2DProps = PlanogramViewProps & {
+  /** A facing was dragged to a new shelf and position. */
+  onMoveFacing?: (move: FacingMove) => void
+  /** A SKU was dragged in from outside the canvas (HTML drag and drop). */
+  onDropSku?: (drop: SkuDrop) => void
+  /** Drag payload type read on drop. Defaults to `application/x-sku`. */
+  dropMimeType?: string
+  /** Rendered centred when the fixture holds no facings. */
+  emptyState?: React.ReactNode
+}
+
 type DropHint = { shelfId: string; x: number; top: number; height: number } | null
 
-export default function Planogram2D() {
-  const fixture = usePlanogramStore((s) => s.fixture)
-  const facings = usePlanogramStore((s) => s.facings)
-  const selectedFacingId = usePlanogramStore((s) => s.selectedFacingId)
-  const preview = usePlanogramStore((s) => s.preview)
-  const select = usePlanogramStore((s) => s.select)
-  const moveFacing = usePlanogramStore((s) => s.moveFacing)
-  const addSkuToShelf = usePlanogramStore((s) => s.addSkuToShelf)
-
-  const skuIndex = useSkuIndex()
-  const stats = usePlanogramStats()
-  const scaleInfo = useMetricScale()
+/**
+ * Front elevation of one fixture, drawn to scale in millimetres.
+ *
+ * Controlled component: it never mutates the planogram it is given, it reports
+ * the move the user made and waits to be re-rendered with new facings.
+ */
+export function Planogram2D({
+  fixture,
+  facings,
+  skus,
+  metric = 'none',
+  selectedFacingId = null,
+  preview = null,
+  theme: themeOverride,
+  getFacingColor,
+  onSelect,
+  onMoveFacing,
+  onDropSku,
+  dropMimeType = SKU_DROP_MIME,
+  controls = true,
+  hints = true,
+  emptyState,
+  className,
+  style,
+}: Planogram2DProps) {
+  const theme = useMemo(() => resolveTheme(themeOverride), [themeOverride])
+  const skuIndex = useMemo(
+    () => (skus instanceof Map ? skus : byId(skus as Sku[])),
+    [skus],
+  )
+  const stats = useMemo(
+    () => planogramStats(fixture, facings, skuIndex),
+    [fixture, facings, skuIndex],
+  )
+  const scaleInfo = useMemo(
+    () => buildScale(metric, stats.perFacing.values()),
+    [metric, stats],
+  )
 
   const contentW = LABEL_GUTTER + UPRIGHT * 2 + fixture.w + MARGIN_RIGHT
   const contentH = fixture.h + MARGIN_TOP + MARGIN_BOTTOM
@@ -49,8 +84,14 @@ export default function Planogram2D() {
 
   const [dropHint, setDropHint] = useState<DropHint>(null)
 
-  const reports = new Map(stats.perShelf.map((report) => [report.shelfId, report]))
-  const fitIssues = new Set(stats.perShelf.flatMap((r) => [...r.tooTall, ...r.tooDeep]))
+  const reports = useMemo(
+    () => new Map(stats.perShelf.map((report) => [report.shelfId, report])),
+    [stats],
+  )
+  const fitIssues = useMemo(
+    () => new Set(stats.perShelf.flatMap((r) => [...r.tooTall, ...r.tooDeep])),
+    [stats],
+  )
 
   /** Where a facing sitting at these stage coordinates would land. */
   const resolveDrop = useCallback(
@@ -97,39 +138,37 @@ export default function Planogram2D() {
       if (!facing || !sku) return
       const box = facingFootprint(facing, sku)
       const { shelf, offset } = resolveDrop(node.x() + box.width / 2, node.y(), box.height, facingId)
-      moveFacing(facingId, shelf.id, offset)
+      onMoveFacing?.({ facingId, shelfId: shelf.id, x: offset })
     },
-    [facings, moveFacing, resolveDrop, skuIndex],
+    [facings, onMoveFacing, resolveDrop, skuIndex],
   )
 
   const handleHtmlDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault()
       setDropHint(null)
-      const skuId = event.dataTransfer.getData('application/x-sku')
+      const skuId = event.dataTransfer.getData(dropMimeType)
       const sku = skuId ? skuIndex.get(skuId) : undefined
-      if (!sku) return
+      if (!sku || !onDropSku) return
 
       const point = toContentMm(event.clientX, event.clientY)
       const localX = point.x - originX
       const localY = point.y - originY
-      const domainY = fixture.h - localY
-      const shelf = shelfAtHeight(fixture, domainY)
+      const shelf = shelfAtHeight(fixture, fixture.h - localY)
       const { offset } = resolveDrop(localX, fixture.h - shelf.y - sku.dims.h, sku.dims.h)
-      addSkuToShelf(sku.id, shelf.id, offset)
+      onDropSku({ skuId: sku.id, shelfId: shelf.id, x: offset })
     },
-    [addSkuToShelf, fixture, originX, originY, resolveDrop, skuIndex, toContentMm],
+    [dropMimeType, fixture, onDropSku, originX, originY, resolveDrop, skuIndex, toContentMm],
   )
 
   const handleHtmlDragOver = useCallback(
     (event: React.DragEvent) => {
-      if (!event.dataTransfer.types.includes('application/x-sku')) return
+      if (!onDropSku || !event.dataTransfer.types.includes(dropMimeType)) return
       event.preventDefault()
       event.dataTransfer.dropEffect = 'copy'
 
       const point = toContentMm(event.clientX, event.clientY)
-      const domainY = fixture.h - (point.y - originY)
-      const shelf = shelfAtHeight(fixture, domainY)
+      const shelf = shelfAtHeight(fixture, fixture.h - (point.y - originY))
       setDropHint({
         shelfId: shelf.id,
         x: Math.max(0, point.x - originX),
@@ -137,11 +176,11 @@ export default function Planogram2D() {
         height: shelf.gap,
       })
     },
-    [fixture, originX, originY, toContentMm],
+    [dropMimeType, fixture, onDropSku, originX, originY, toContentMm],
   )
 
   const previewWidthFor = (facing: Facing): number | undefined => {
-    const target = preview?.targets.get(facing.id)
+    const target = preview?.get(facing.id)
     const sku = skuIndex.get(facing.skuId)
     if (target === undefined || !sku) return undefined
     return facingFootprint({ ...facing, wide: target }, sku).width
@@ -150,7 +189,15 @@ export default function Planogram2D() {
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full overflow-hidden bg-ink-950"
+      className={className}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        background: theme.background,
+        ...style,
+      }}
       onDrop={handleHtmlDrop}
       onDragOver={handleHtmlDragOver}
       onDragLeave={() => setDropHint(null)}
@@ -171,12 +218,12 @@ export default function Planogram2D() {
             }
           }}
           onMouseDown={(event) => {
-            if (event.target === event.target.getStage()) select(null)
+            if (event.target === event.target.getStage()) onSelect?.(null)
           }}
         >
           <Layer listening={false}>
             <Group x={originX} y={originY}>
-              <FixtureLayer fixture={fixture} reports={reports} scale={scale} />
+              <FixtureLayer fixture={fixture} reports={reports} scale={scale} theme={theme} />
             </Group>
           </Layer>
 
@@ -186,6 +233,7 @@ export default function Planogram2D() {
                 const sku = skuIndex.get(facing.skuId)
                 const shelf = fixture.shelves.find((s) => s.id === facing.shelfId)
                 if (!sku || !shelf) return null
+                const facingStats = stats.perFacing.get(facing.id)
                 return (
                   <FacingBlock
                     key={facing.id}
@@ -194,12 +242,16 @@ export default function Planogram2D() {
                     shelf={shelf}
                     fixtureHeight={fixture.h}
                     scale={scale}
-                    color={colorFor(sku, facing, stats.perFacing.get(facing.id), scaleInfo)}
+                    theme={theme}
+                    color={
+                      getFacingColor?.(sku, facing, facingStats) ??
+                      colorFor(sku, facing, facingStats, scaleInfo)
+                    }
                     selected={selectedFacingId === facing.id}
                     hasFitIssue={fitIssues.has(facing.id)}
                     dimmed={Boolean(selectedFacingId) && selectedFacingId !== facing.id}
                     previewWidth={previewWidthFor(facing)}
-                    onSelect={select}
+                    onSelect={(id) => onSelect?.(id)}
                     onDragMove={handleDragMove}
                     onDragEnd={handleDragEnd}
                   />
@@ -217,14 +269,15 @@ export default function Planogram2D() {
                     y={dropHint.top}
                     width={fixture.w + 8}
                     height={dropHint.height}
-                    fill="rgba(74,222,128,0.07)"
-                    stroke="rgba(74,222,128,0.35)"
+                    fill={theme.accent}
+                    opacity={0.07}
+                    stroke={theme.accent}
                     strokeWidth={1 / scale}
                     perfectDrawEnabled={false}
                   />
                   <Line
                     points={[dropHint.x, dropHint.top, dropHint.x, dropHint.top + dropHint.height]}
-                    stroke="#4ade80"
+                    stroke={theme.accent}
                     strokeWidth={3 / scale}
                     perfectDrawEnabled={false}
                   />
@@ -235,35 +288,41 @@ export default function Planogram2D() {
         </Stage>
       )}
 
-      <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-2">
-        <div className="pointer-events-auto flex gap-1 rounded-md border border-ink-800 bg-ink-900/90 p-1 backdrop-blur">
-          <IconButton onClick={() => zoomBy(1.25)} title="Zoom in">
-            <ZoomIn size={14} />
-          </IconButton>
-          <IconButton onClick={() => zoomBy(0.8)} title="Zoom out">
-            <ZoomOut size={14} />
-          </IconButton>
-          <IconButton onClick={fit} title="Fit to view">
-            <Maximize2 size={14} />
-          </IconButton>
+      {controls && (
+        <div style={{ ...overlayBase(theme), left: 12, bottom: 12 }}>
+          <ControlGroup theme={theme}>
+            <ControlButton theme={theme} title="Zoom in" onClick={() => zoomBy(1.25)}>
+              {icons.zoomIn}
+            </ControlButton>
+            <ControlButton theme={theme} title="Zoom out" onClick={() => zoomBy(0.8)}>
+              {icons.zoomOut}
+            </ControlButton>
+            <ControlButton theme={theme} title="Fit to view" onClick={fit}>
+              {icons.fit}
+            </ControlButton>
+          </ControlGroup>
+          <Readout theme={theme}>{(scale * 1000).toFixed(0)} px/m</Readout>
         </div>
-        <span className="tabular rounded border border-ink-800 bg-ink-900/90 px-2 py-1 text-[10px] text-slate-500">
-          {(scale * 1000).toFixed(0)} px/m
-        </span>
-      </div>
+      )}
 
-      <div className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5 text-[10px] text-slate-600">
-        <Crosshair size={11} />
-        drag to move · wheel to zoom · drag the background to pan
-      </div>
+      {hints && <Hint theme={theme}>drag to move · wheel to zoom · drag the background to pan</Hint>}
 
-      {facings.length === 0 && (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="rounded border border-ink-800 bg-ink-900/90 px-3 py-2 text-xs text-slate-400">
-            Empty fixture — drag SKUs from the catalogue, or run autofacing.
-          </span>
+      {facings.length === 0 && emptyState && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            pointerEvents: 'none',
+          }}
+        >
+          {emptyState}
         </div>
       )}
     </div>
   )
 }
+
+export default Planogram2D

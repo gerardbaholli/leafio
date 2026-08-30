@@ -1,8 +1,9 @@
 import { memo } from 'react'
 import { Group, Line, Rect, Text } from 'react-konva'
 
-import type { Fixture } from '@/core/model'
-import type { ShelfReport } from '@/core/packing'
+import type { Fixture } from '../model'
+import type { ShelfReport } from '../packing'
+import type { PlanogramTheme } from '../theme'
 
 export const UPRIGHT = 55
 export const LABEL_GUTTER = 460
@@ -12,12 +13,15 @@ function FixtureLayerImpl({
   fixture,
   reports,
   scale,
+  theme,
 }: {
   fixture: Fixture
   reports: Map<string, ShelfReport>
   scale: number
+  theme: PlanogramTheme
 }) {
   const h = fixture.h
+  const f = theme.fixture
 
   return (
     <Group listening={false}>
@@ -26,12 +30,12 @@ function FixtureLayerImpl({
         y={0}
         width={fixture.w + UPRIGHT * 2}
         height={h}
-        fill="#111a27"
-        stroke="#1f2c3f"
+        fill={f.frame}
+        stroke={f.frameEdge}
         strokeWidth={1 / scale}
         perfectDrawEnabled={false}
       />
-      <Rect x={0} y={0} width={fixture.w} height={h} fill="#0e1621" perfectDrawEnabled={false} />
+      <Rect x={0} y={0} width={fixture.w} height={h} fill={f.back} perfectDrawEnabled={false} />
 
       {[-UPRIGHT, fixture.w].map((x) => (
         <Rect
@@ -40,15 +44,15 @@ function FixtureLayerImpl({
           y={0}
           width={UPRIGHT}
           height={h}
-          fill="#243248"
+          fill={f.upright}
           perfectDrawEnabled={false}
         />
       ))}
 
-      {/* Floor line and overall width dimension. */}
+      {/* Floor line and overall dimensions. */}
       <Line
         points={[-UPRIGHT - 120, h, fixture.w + UPRIGHT + 120, h]}
-        stroke="#334155"
+        stroke={f.floorLine}
         strokeWidth={1.5 / scale}
         perfectDrawEnabled={false}
       />
@@ -59,7 +63,7 @@ function FixtureLayerImpl({
         align="center"
         text={`${fixture.name}  ·  ${(fixture.w / 1000).toFixed(2)} m × ${(fixture.h / 1000).toFixed(2)} m × ${fixture.d} mm`}
         fontSize={11 / scale}
-        fill="#64748b"
+        fill={theme.textFaint}
         perfectDrawEnabled={false}
       />
 
@@ -67,6 +71,7 @@ function FixtureLayerImpl({
         const report = reports.get(shelf.id)
         const boardTop = h - shelf.y
         const fill = report?.fillRate ?? 0
+        const crowded = fill > 0.97
 
         return (
           <Group key={shelf.id}>
@@ -75,7 +80,7 @@ function FixtureLayerImpl({
               y={boardTop}
               width={fixture.w}
               height={shelf.thickness}
-              fill="#3b4a63"
+              fill={f.shelfBoard}
               perfectDrawEnabled={false}
             />
             <Rect
@@ -83,7 +88,7 @@ function FixtureLayerImpl({
               y={boardTop}
               width={fixture.w}
               height={shelf.thickness * 0.35}
-              fill="#4d5f7d"
+              fill={f.shelfEdge}
               perfectDrawEnabled={false}
             />
 
@@ -93,7 +98,7 @@ function FixtureLayerImpl({
               y={boardTop + shelf.thickness}
               width={fixture.w}
               height={7 / scale}
-              fill="#182334"
+              fill={f.shelfTrack}
               perfectDrawEnabled={false}
             />
             <Rect
@@ -101,7 +106,7 @@ function FixtureLayerImpl({
               y={boardTop + shelf.thickness}
               width={fixture.w * Math.min(1, fill)}
               height={7 / scale}
-              fill={fill > 0.97 ? '#f59e0b' : '#22c55e'}
+              fill={crowded ? theme.warning : f.fillBar}
               opacity={0.75}
               perfectDrawEnabled={false}
             />
@@ -112,8 +117,9 @@ function FixtureLayerImpl({
                 y={boardTop - shelf.gap}
                 width={report.overflow}
                 height={shelf.gap}
-                fill="rgba(244,63,94,0.18)"
-                stroke="#f43f5e"
+                fill={theme.danger}
+                opacity={0.18}
+                stroke={theme.danger}
                 strokeWidth={1.5 / scale}
                 dash={[8 / scale, 5 / scale]}
                 perfectDrawEnabled={false}
@@ -129,7 +135,7 @@ function FixtureLayerImpl({
               wrap="none"
               fontSize={11 / scale}
               fontStyle="600"
-              fill={fill > 0.97 ? '#fbbf24' : '#94a3b8'}
+              fill={crowded ? theme.pin : theme.textMuted}
               perfectDrawEnabled={false}
             />
             <Text
@@ -140,7 +146,7 @@ function FixtureLayerImpl({
               text={`gap ${shelf.gap}`}
               wrap="none"
               fontSize={9.5 / scale}
-              fill="#475569" 
+              fill={theme.textFaint}
               perfectDrawEnabled={false}
             />
           </Group>

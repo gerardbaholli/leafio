@@ -17,7 +17,7 @@ There is no backend, no persistence and no authentication.
 ```bash
 pnpm install
 pnpm dev        # http://localhost:5173
-pnpm test       # core logic (packing, metrics, autofacing, generator)
+pnpm test       # kit geometry/KPIs, the boundary guard, and the demo generator
 pnpm build      # typecheck + production build
 ```
 
@@ -35,30 +35,48 @@ pnpm build      # typecheck + production build
 
 ## How it is put together
 
+The repository is split in two zones, and the split is the point: the graphics
+are meant to be liftable into another project, the demo around them is not.
+
 ```
 src/
-├── core/        pure domain logic, no React — the only place with unit tests
-│   ├── model.ts       store -> fixture -> shelf -> facing -> SKU
-│   ├── rng.ts         seeded PRNG; one seed rebuilds one store exactly
-│   ├── catalog.ts     brand/line/format tables the generator combines
-│   ├── generate.ts    scenario generator (catalogue + fixture + planogram)
-│   ├── packing.ts     shelf layout, hit-testing, reorder
-│   ├── metrics.ts     capacity, days of supply, service level, KPIs
-│   ├── colors.ts      one colour source shared by both renderers
-│   └── autofacing.ts  space-aware facing allocation
-├── state/       zustand store + zundo undo/redo
-├── ui/          shared chrome primitives
-└── modules/shelf-space/{canvas2d,canvas3d,panels}
+├── merch-kit/   PORTABLE — copy this folder and it works elsewhere
+│   ├── model.ts        fixture -> shelf -> facing -> SKU, millimetres
+│   ├── packing.ts      shelf layout, hit-testing, reorder
+│   ├── metrics.ts      capacity, days of supply, service level, KPIs
+│   ├── colors.ts       the metric ramps both renderers share
+│   ├── theme.ts        every colour the canvases draw, in one object
+│   ├── types.ts        the public props
+│   ├── chrome.tsx      inline-styled floating UI (no CSS framework)
+│   ├── planogram2d/    Konva front elevation
+│   ├── planogram3d/    three.js bay
+│   └── __tests__/      standalone tests + the boundary guard
+│
+├── demo/        NOT portable — this app, wrapped around the kit
+│   ├── data/           seeded fake-data generator (rng, catalog, generate)
+│   ├── autofacing.ts   space-aware facing allocation
+│   ├── state/          zustand + zundo undo/redo
+│   ├── ui/             Tailwind panel primitives
+│   └── shelf-space/    toolbar, side panels, and PlanogramCanvas — the one
+│                       file that talks to the kit
+└── App.tsx
 ```
 
-Three rules hold the thing together:
+[`src/merch-kit/README.md`](src/merch-kit/README.md) documents the kit's API and
+how to take it somewhere else.
+
+Four rules hold the thing together:
 
 1. **Millimetres everywhere.** Renderers convert at their boundary and nowhere
    else — 2D multiplies by a px/mm scale, 3D divides by 1000 to get metres.
-2. **2D and 3D are two renderers over one store.** Switching view keeps
+2. **2D and 3D are two renderers over one state.** Switching view keeps
    selection, colours and layout, because there is nothing to convert.
 3. **Array order is row order.** `layoutShelf` assigns `x` from the array order
    it is given and never re-sorts, so a reorder cannot be undone by a stale `x`.
+4. **The kit never imports the app.** `src/merch-kit/__tests__/boundary.test.ts`
+   fails the build if a kit file reaches for the `@/` alias, escapes its folder,
+   pulls in zustand/recharts/lucide, or styles with a utility class. The
+   portability claim is enforced, not just asserted.
 
 ## Fake data
 

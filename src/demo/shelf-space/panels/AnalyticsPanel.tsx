@@ -1,15 +1,20 @@
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 
-import { ABC_COLORS, METRICS, rampColor } from '@/core/colors'
-import { OVERSTOCK_DOS, STOCKOUT_DOS } from '@/core/metrics'
+import {
+  ABC_COLORS,
+  METRICS,
+  OVERSTOCK_DOS,
+  rampColor,
+  STOCKOUT_DOS,
+} from '@/merch-kit'
 import {
   useMetricScale,
   usePlanogramStats,
   usePlanogramStore,
   usePreviewStats,
   useSkuIndex,
-} from '@/state/planogramStore'
-import { Panel, Stat, fmt } from '@/ui/primitives'
+} from '@/demo/state/planogramStore'
+import { Panel, Stat, fmt } from '@/demo/ui/primitives'
 
 export default function AnalyticsPanel() {
   const stats = usePlanogramStats()
