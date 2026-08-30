@@ -5,18 +5,20 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Pushing the built site onto the gh-pages branch needs write access to the
+# repository. The artifact-based `pages: write` / `id-token: write` pair is not
+# used by this method.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Let a running deploy finish being superseded rather than racing it.
+# Let a running deploy finish being superseded rather than racing it — two jobs
+# pushing gh-pages at once would reject each other.
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,16 +38,15 @@ jobs:
 
       - run: pnpm build
 
-      - uses: actions/upload-pages-artifact@v3
+      # Publishes dist/ as the whole content of gh-pages, creating the branch on
+      # the first run. Writes .nojekyll so Pages serves the files as they are
+      # instead of running them through Jekyll.
+      - name: Publish dist/ to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          commit_message: "Deploy ${{ github.sha }}"
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com

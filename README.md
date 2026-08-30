@@ -23,18 +23,32 @@ pnpm build      # typecheck + production build
 
 ## Deploying
 
-Pushing to `main` publishes to GitHub Pages via
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
-`pnpm test` runs first, so a change that breaks the kit's portability guard
-stops the deploy instead of shipping. Live at
-<https://gerardbaholli.github.io/leafio/>.
+Pushing to `main` builds the site and publishes it onto the **`gh-pages`**
+branch, whose contents are what GitHub Pages serves. See
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml): `pnpm test` runs
+before the build, so a change that breaks the kit's portability guard stops the
+deploy instead of shipping. Live at <https://gerardbaholli.github.io/leafio/>.
+
+`main` holds the source, `gh-pages` holds the build output. Never commit to
+`gh-pages` by hand — every deploy overwrites it.
 
 `base: './'` in [vite.config.ts](vite.config.ts) is what makes the same build
 work at the domain root and under `/leafio/`. Safe here because the demo is a
 single page with no client-side routing — with a router it would need the
 explicit `/leafio/` path instead.
 
-Enabling it once, on GitHub: **Settings → Pages → Source: GitHub Actions**.
+Configured once, on GitHub: **Settings → Pages → Source: Deploy from a branch →
+`gh-pages` / `(root)`**.
+
+Because the branch accumulates a commit per deploy and the hashed bundles change
+every build, its history grows by roughly 500 kB each time. It carries nothing
+worth keeping, so flatten it whenever it gets heavy — this touches only
+`gh-pages`, never the source history:
+
+```bash
+git checkout --orphan flat gh-pages && git commit -m "Flatten" \
+  && git push --force origin flat:gh-pages && git checkout main
+```
 
 ## What the first demo does
 
